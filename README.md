@@ -20,10 +20,9 @@ Three things distinguish it from a plain "do these in order" loop:
   else is open — bug reports, debt notes, parent specs — and cannot tell a ticket you just
   drafted from an issue that has been sitting there for months. The tickets are captured to
   disk before the first one starts, so a context compaction cannot lose them.
-- **The implementation process ships inside the skill.** `references/implement.md` carries
-  the whole process rather than delegating to whatever `/implement` happens to resolve to
-  in the current project — which is a nine-line stub in most repositories. Same bar
-  everywhere.
+- **It composes rather than reimplements.** The loop hands each ticket to `/implement`,
+  which calls `/tdd` and `/code-review` itself. This skill owns only what `/implement` has
+  no place for — the things that go wrong *between* tickets rather than inside one.
 - **The database is never reset between tickets.** Each ticket adds its own namespaced
   fixtures and reads the accumulated corpus freely; nothing a ticket did not create is
   mutated or deleted. An empty database measures nothing, and a bulk prefix sweep is a
@@ -31,6 +30,11 @@ Three things distinguish it from a plain "do these in order" loop:
 
 All loop state lives in `~/.claude/loop-tickets/<slug>/`, never in the repository being
 worked on, so the working tree stays clean.
+
+**Requires** `/implement` (and the `/tdd` and `/code-review` it calls) — the
+[mattpocock skills](https://github.com/mattpocock/skills) chain it slots into:
+`to-spec → to-tickets → loop-tickets → implement → code-review`. A project with its own
+`/implement` gets that one instead, which is the intent.
 
 ## Install
 
