@@ -1,8 +1,8 @@
 ---
 name: loop-tickets
-description: "Work a pool of tickets to completion, one at a time, running /implement on each. Use after /to-tickets has produced the tickets."
+description: "Work a pool of tickets to completion, one at a time, running /implement on each. Use when the user wants a set of tickets worked through end to end — after /to-tickets has produced them, or whenever they ask to work the queue, drain the tickets, or do them one by one."
 argument-hint: "[max=N] [dryRun]"
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 # Loop Tickets
