@@ -16,12 +16,17 @@ Work the tickets from this conversation one at a time, running `/implement` on e
 
 ### 1. Capture the pool
 
-Write the tickets this conversation produced to
-`~/.claude/loop-tickets/<repo>/tickets.json` — for each: id, title, what to build,
-acceptance criteria, blocked-by, and `status: "todo"`.
+The pool is the tickets this session just produced. `/to-tickets` writes them out as it
+goes, so take the text from what it wrote — `.scratch/<feature-slug>/issues/*.md`, or the
+issues it just created — rather than re-typing it from the conversation, which paraphrases
+acceptance criteria. Use the conversation only if it wrote nothing.
 
-Do this before starting: a long run gets compacted, and the tickets are unrecoverable from
-prose afterwards. Keep the file outside the repository so the working tree stays clean.
+Copy them into `~/.claude/loop-tickets/<repo>/tickets.json` — id, title, what to build,
+acceptance criteria, blocked-by, `status: "todo"` — before starting the first ticket: a
+long run gets compacted, and the tickets are unrecoverable afterwards. Keep the file
+outside the repository so the working tree stays clean.
+
+If this session produced no tickets, say so and stop. Never invent a pool.
 
 ### 2. Work the frontier, one ticket at a time
 
