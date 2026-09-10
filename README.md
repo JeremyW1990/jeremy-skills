@@ -1,7 +1,7 @@
 # jeremy-skills
 
-Claude Code skills, kept in one place so they can be installed on any machine and used
-across every project.
+Codex and Claude Code skills, kept in one place so they can be installed on any machine
+and used across projects. Use `$skill-name` in Codex and `/skill-name` in Claude Code.
 
 ## Skills
 
@@ -20,7 +20,7 @@ It adds only what running *many* tickets needs and running one does not:
 - the pool written to disk, so a compaction cannot lose it
 - dependency-closure validation, so a missing blocker cannot strand the run later
 - a fresh context per ticket, so ticket N+1 does not inherit ticket N's
-- new test data per ticket, on a database that is never reset between them
+- ticket-owned persistent test data when needed, without resetting a shared database
 - final-gate coverage inspection, so checks already run by a hook or CI are not repeated
   manually on unchanged inputs
 - a skip-and-count rule, so one undecidable ticket does not halt the queue
@@ -35,8 +35,32 @@ project runner. It therefore still fits the
 `to-spec → to-tickets → loop-tickets → implement → code-review` without forcing that chain
 on a queue with a different configured workflow.
 
-Loop state lives in `~/.claude/loop-tickets/<repo>/`, never in the repository being worked
-on, so the working tree stays clean.
+Loop state lives outside the working repository, under the host's
+`loop-tickets/<repo>/<pool>/` directory: `$CODEX_HOME` (default `~/.codex`) for Codex,
+or `~/.claude` for Claude Code. Existing matching state is reused on resume.
+
+For a project that chooses local verification and no separate review pass:
+
+```text
+$loop-tickets runner=implement validation=local review=none
+```
+
+This retains ticket acceptance tests and required remote checks. Preparation and
+dependency setup are reused while valid; base synchronization happens once per ticket
+boundary; the project's final validation-and-merge command runs the selected checks
+once. `dryRun` validates and opens the current PR, then stops without merging.
+
+### [`implement`](skills/implement)
+
+The companion runner follows the selected verification/review policy, uses focused
+development tests, and leaves the final gate to the queue when the project owns it.
+`review=none` skips the separate review stage without dropping acceptance requirements.
+
+### [`tdd`](skills/tdd)
+
+Behavior-focused testing at approved boundaries. Ticket-approved seams need no repeated
+confirmation; persistence, authorization and rollback can be explicit database contracts.
+Necessary local cleanup does not require a separate Code Review stage.
 
 ## Install
 
@@ -48,6 +72,9 @@ git clone https://github.com/JeremyW1990/jeremy-skills.git ~/.local/share/jeremy
 mkdir -p ~/.claude/skills
 ln -s ~/.local/share/jeremy-skills/skills/loop-tickets ~/.claude/skills/loop-tickets
 ```
+
+For Codex, use `~/.codex/skills/` (or `$CODEX_HOME/skills/`) as the link directory.
+The same installation approach applies to the companion `implement` and `tdd` skills.
 
 If a directory of that name already exists, move it aside first — `ln -s` against an
 existing directory nests the link inside it rather than replacing it:
