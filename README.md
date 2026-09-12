@@ -18,15 +18,15 @@ once, merge, and take the next.
 It adds only what running *many* tickets needs and running one does not:
 
 - the pool written to disk, so a compaction cannot lose it
-- a local per-project `PROJECT-NOTES.md`, so later pools can reuse verified fast paths
-  and avoid recurring failure patterns without turning observations into project policy
+- a tracked `.loop-tickets/project-notes.md`, so every project shares its queue lessons
+  on GitHub through the same ticket PRs
 - dependency-closure validation, so a missing blocker cannot strand the run later
 - a fresh context per ticket, so ticket N+1 does not inherit ticket N's
 - one worker retained through each ticket's repairs, so an attempt does not pay repeated
   discovery and handoff costs
 - ticket-owned persistent test data when needed, without resetting a shared database
-- explicit validation ownership and fingerprinted receipts, so checks already run by a
-  hook or CI are not repeated manually on unchanged inputs
+- current-ticket-only local tests, so earlier-ticket and full-regression suites are not
+  repeated manually
 - categorized blocker handling, so one undecidable ticket does not halt a runnable frontier
 
 Each implementation ticket gets its own branch and PR. Project configuration or
@@ -41,28 +41,29 @@ on a queue with a different configured workflow.
 
 Loop state lives outside the working repository, under the host's
 `loop-tickets/<repo-key>/<pool>/` directory: `$CODEX_HOME` (default `~/.codex`) for
-Codex, or `~/.claude` for Claude Code. A compact `PROJECT-NOTES.md` beside the pool
-directories summarizes the live frontier, verified validation facts, repeated waste and
-future ticket-design lessons. It is derived and advisory; current tickets, project
-instructions and code remain authoritative. Existing matching state is reused on resume.
+Codex, or `~/.claude` for Claude Code. The compact note instead lives at the tracked
+repository path `.loop-tickets/project-notes.md`. Each ticket updates it once as an
+effective-on-merge snapshot and includes it in the same implementation PR before the
+first push, avoiding a note-only commit or duplicate CI. It summarizes merged progress,
+the projected frontier, validation cost, repeated waste and future ticket-design lessons.
+Existing matching state is reused on resume.
 
-For a project that chooses local verification and no separate review pass:
+Code review defaults on. To omit the separate review pass:
 
 ```text
-$loop-tickets runner=implement validation=local review=none
+$loop-tickets review=off
 ```
 
-This retains ticket acceptance tests and required remote checks. Preparation and
-dependency setup are reused while their fingerprints remain valid; base synchronization
-happens once per ticket boundary; and each required check has one primary evidence owner
-across focused tests, hooks, local gates and CI. `noMerge` (legacy alias: `dryRun`)
-validates and opens the current PR, then stops without merging.
+The loop runs only the smallest local test selectors related to the current ticket. It
+does not manually run full regression suites or tests from earlier tickets without a
+current-ticket reason. Mandatory hooks, branch protections and CI may run broader checks
+once; the loop does not bypass or duplicate them.
 
 ### [`implement`](skills/implement)
 
 The companion runner follows the selected verification/review policy, uses focused
-development tests, and leaves the final gate to the queue when the project owns it.
-`review=none` skips the separate review stage without dropping acceptance requirements.
+development tests, and leaves PR delivery to the queue. `review=off` skips the separate
+review stage without dropping current-ticket acceptance requirements.
 
 ### [`tdd`](skills/tdd)
 
