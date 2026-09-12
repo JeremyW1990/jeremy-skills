@@ -18,12 +18,16 @@ once, merge, and take the next.
 It adds only what running *many* tickets needs and running one does not:
 
 - the pool written to disk, so a compaction cannot lose it
+- a local per-project `PROJECT-NOTES.md`, so later pools can reuse verified fast paths
+  and avoid recurring failure patterns without turning observations into project policy
 - dependency-closure validation, so a missing blocker cannot strand the run later
 - a fresh context per ticket, so ticket N+1 does not inherit ticket N's
+- one worker retained through each ticket's repairs, so an attempt does not pay repeated
+  discovery and handoff costs
 - ticket-owned persistent test data when needed, without resetting a shared database
-- final-gate coverage inspection, so checks already run by a hook or CI are not repeated
-  manually on unchanged inputs
-- a skip-and-count rule, so one undecidable ticket does not halt the queue
+- explicit validation ownership and fingerprinted receipts, so checks already run by a
+  hook or CI are not repeated manually on unchanged inputs
+- categorized blocker handling, so one undecidable ticket does not halt a runnable frontier
 
 Each implementation ticket gets its own branch and PR. Project configuration or
 authoritative ticket text may explicitly state that one implementation satisfies multiple
@@ -36,8 +40,11 @@ project runner. It therefore still fits the
 on a queue with a different configured workflow.
 
 Loop state lives outside the working repository, under the host's
-`loop-tickets/<repo>/<pool>/` directory: `$CODEX_HOME` (default `~/.codex`) for Codex,
-or `~/.claude` for Claude Code. Existing matching state is reused on resume.
+`loop-tickets/<repo-key>/<pool>/` directory: `$CODEX_HOME` (default `~/.codex`) for
+Codex, or `~/.claude` for Claude Code. A compact `PROJECT-NOTES.md` beside the pool
+directories summarizes the live frontier, verified validation facts, repeated waste and
+future ticket-design lessons. It is derived and advisory; current tickets, project
+instructions and code remain authoritative. Existing matching state is reused on resume.
 
 For a project that chooses local verification and no separate review pass:
 
@@ -46,9 +53,10 @@ $loop-tickets runner=implement validation=local review=none
 ```
 
 This retains ticket acceptance tests and required remote checks. Preparation and
-dependency setup are reused while valid; base synchronization happens once per ticket
-boundary; the project's final validation-and-merge command runs the selected checks
-once. `dryRun` validates and opens the current PR, then stops without merging.
+dependency setup are reused while their fingerprints remain valid; base synchronization
+happens once per ticket boundary; and each required check has one primary evidence owner
+across focused tests, hooks, local gates and CI. `noMerge` (legacy alias: `dryRun`)
+validates and opens the current PR, then stops without merging.
 
 ### [`implement`](skills/implement)
 

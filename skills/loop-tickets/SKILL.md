@@ -1,132 +1,176 @@
 ---
 name: loop-tickets
-description: "Work a dependency-ordered pool of implementation tickets to completion, one ticket per branch and PR, with persistent state and deduplicated validation. Use after to-tickets or when asked to drain a ticket queue end to end."
+description: "Drain a dependency-ordered implementation ticket pool, one branch and PR per ticket, with resumable state, project learning notes, and non-duplicative validation. Use after to-tickets or when asked to work a ticket queue end to end."
 ---
 
 # Loop Tickets
 
-Work one implementation ticket at a time. This skill owns queue state, workflow
-selection, validation coverage and PR delivery; the selected runner owns implementation.
-Use the host's skill syntax: `$loop-tickets` in Codex, `/loop-tickets` in Claude Code.
+Work one implementation ticket at a time. The orchestrator owns queue state, reusable
+project context, review, final validation and PR delivery; the selected runner owns the
+implementation method and focused development feedback. Use `$loop-tickets` in Codex
+and `/loop-tickets` in Claude Code.
+
+User choices set scope and options; exact tickets set acceptance criteria and blockers;
+current project instructions constrain workflow; actual code/configuration reveals
+behavior and coverage. Project notes are advisory navigation only.
 
 ## Inputs
 
-`loop-tickets [runner=<skill>] [validation=project|local] [review=project|none|code-review] [max=N] [dryRun]`
+`loop-tickets [runner=<skill>] [validation=project|local] [review=project|none|code-review] [max=N] [noMerge|dryRun]`
 
-Omitted options follow the active project. Explicit user choices override inherited
-runner instructions. `review=none` removes separate Code Review/Evaluator passes, not
-acceptance tests. `validation=local` runs checks locally; it neither changes remote
-settings nor bypasses required remote checks. No option authorizes deployment.
+Omitted options follow the project. The runner defaults to `implement` only when neither
+the user nor project selects one. Resolve `review=project` to a concrete project mechanism;
+if none exists, inherited review becomes `none`, while an explicit user request must be
+reported. `review=none` removes a separate review pass, not acceptance checks.
+`validation=local` governs checks started by this skill; required CI triggered by a push
+or PR must still pass. `dryRun` is a legacy alias for `noMerge`: both may push and open a
+PR but never merge. No option authorizes deployment.
 
-## 1. Prepare once
+## 1. Capture the pool and state
 
-Read the exact published issues or ticket package the user selected. Otherwise use
+Read the exact published issues or ticket package selected by the user. Otherwise use
 what `to-tickets` wrote this session: `.scratch/<feature-slug>/issues/*.md` or its
-published issues. Never reconstruct acceptance criteria from conversation summaries.
-If none can be located, report the paths searched and stop; do not invent a pool.
+published issues. Never reconstruct acceptance criteria from a conversation summary.
+If no pool can be located, report the paths and trackers searched and stop.
 
-Persist each ticket's exact source, source hash/version, title, acceptance criteria,
-blockers and status before implementation. In Codex use
-`${CODEX_HOME:-$HOME/.codex}/loop-tickets/<repo>/<pool>/`; in Claude Code use
-`~/.claude/loop-tickets/<repo>/<pool>/`. Reuse an existing matching state file,
-including an older layout, rather than resetting its statuses. Keep unrelated pools
-separate and all queue files outside the working repository.
+Use one stable `<repo-key>` for a canonical remote repository across its worktrees; if
+there is no remote, derive it from the canonical repository root plus a short hash. Store
+state outside the working repository:
 
-- Validate dependency closure and cycles once against the authoritative tracker.
-  A blocker must be in the pool, confirmed satisfied externally, or explicitly
-  recorded as an unresolved external dependency with its source and reason.
-- Record runner (default `implement`), base branch, merge command, review policy and
-  validation location. Fetch the selected pool in a batch; do not reload every issue
-  before every ticket. Refresh relevant source/dependency changes and recheck on resume.
-- Inspect actual scripts, hooks, CI and applicable project instructions. Record a
-  compact coverage map: underlying commands, test-file selections, dependency tasks
-  and required database/browser checks. Expand wrappers; a command name proves no coverage.
-- Prepare a shared context packet with current policy, exact source pointers and file
-  hashes. Pass the current ticket in full plus relevant references to each worker;
-  do not make every worker rediscover the entire backlog or retired project workflows.
-  Refresh changed instructions and read relevant source sections; the packet is not
-  permission to ignore current project rules or replace the exact ticket.
-- Prepare dependencies and local services only when needed. Reuse a healthy stack;
-  install when dependencies/runtime changed or are missing, and generate when inputs
-  changed or outputs are missing. Record setup's actual build/generation coverage.
+- Codex: `${CODEX_HOME:-$HOME/.codex}/loop-tickets/<repo-key>/`
+- Claude Code: `~/.claude/loop-tickets/<repo-key>/`
 
-Reuse this preparation while its inputs remain unchanged. Never reuse an old pool's
-test map merely because it belongs to the same repository.
+Keep each pool in its own child directory and `PROJECT-NOTES.md` beside those directories.
+Reuse matching state. Normalize legacy state before trusting it, preserving ticket status
+and evidence rather than resetting them.
 
-## 2. Work the frontier
+Before implementation:
 
-Resume an active ticket first. Otherwise take the lowest-numbered `todo` ticket whose
-blockers are satisfied. Exclude tickets marked `blocked` until their reason is resolved.
+- Persist each ticket's exact source/version, title, acceptance criteria, blockers and
+  status. Validate dependency closure and cycles once against the authoritative tracker.
+- Use one canonical ticket status: `todo`, `working`, `pr_open`, `validating`,
+  `validated`, `blocked` or `done`. Derive active ticket, counts and frontier from ticket
+  statuses on every read; stored summaries are caches and never override them.
+- Record runner, base, merge command, review policy, validation location and PR/CI
+  triggers. Batch-fetch the pool; on resume refresh only relevant changed sources.
+- Persist only redacted identifiers, fingerprints and evidence pointers. Never record
+  secrets, credential-bearing URLs, environment values, tokens, customer data or fixture
+  payloads in state, receipts or notes.
 
-1. **Synchronize once at the ticket boundary.** The orchestrator fetches/fast-forwards
-   the base before the first ticket and after each merge. Branch the next ticket from
-   that synchronized base; the worker does not repeat the pull. Keep one ticket per
-   branch/PR unless authoritative instructions explicitly combine their delivery.
-2. **Prepare only necessary fixtures.** For persistent test data, use ticket/run-tagged
-   clients and GL inputs. Reuse fixture factories, not another ticket's mutable client.
-   Pure or documentation work needs no artificial database setup. Do not reset the
-   existing database or remove earlier tickets' data. An explicitly authorized,
-   run-owned scratch database may be rebuilt/cleaned according to its test contract.
-3. **Run the selected runner in a fresh worker context.** In Codex use `spawn_agent`
-   with `fork_turns: "none"`; otherwise use the host's equivalent subagent. Pass the
-   exact ticket, workflow policy, context packet, coverage map and current evidence.
-   The worker can edit, test, commit and push its feature branch. Only the orchestrator
-   owns queue transitions and final merge unless the project explicitly delegates them.
-4. **Use focused TDD during development.** Accepted ticket/contract seams are already
-   agreed; do not ask again. Under `review=none`, do not invoke Code Review or an
-   Evaluator. The worker inspects its own diff and satisfies each acceptance criterion.
-5. **Persist progress at meaningful boundaries.** Atomically save phase, branch/head,
-   PR URL, validation plan/receipt and any blocker. Distinguish `working`, `pr_open`,
-   `validating`, `validated`, `merged` and `blocked`; retain completed tickets as `done`.
-   On interruption or an uncertain push/merge result, inspect the existing branch/PR
-   before recreating it or repeating work. A closed unmerged PR is not completion.
-6. **Open the PR, then perform final validation once.** Use the project's existing
-   validation-and-merge command when present; do not pre-run its suite for a handoff.
-   Otherwise run the selected checks and merge when green. Bind the plan/results to
-   the tested head/base and keep the candidate clean. Local validation mode dispatches
-   no duplicate CI and waits for no nonexistent status check.
-7. **Finish and advance.** Confirm the merge, record `done` and the merge receipt,
-   synchronize the base once, then take the next ticket. Do not run a post-merge
-   baseline/full suite on the same resulting tree.
+## 2. Prepare reusable project context
 
-## 3. Validate without duplication
+Read current user/ticket and project instructions, then use `PROJECT-NOTES.md` to locate
+likely validation entrypoints and known costs. Verify every reused claim against its
+referenced files. Inspect only the current pool's packages and reachable validation
+configuration, expanding discovery when coverage is missing or an input changed.
 
-- Run one affected dependency graph instead of separate root lint/build/typecheck/test
-  graphs that repeat builds. If a build really embeds a typecheck, count it once;
-  retain separate checks for packages whose build only bundles. Select dependents too.
-- Deduplicate tests by actual file/case coverage, not suite names. A full suite plus
-  overlapping named suites is not additional evidence. Keep required unselected
-  integration, migration, RLS, concurrency and browser checks. Do not substitute a
-  fabricated engine result for a real detection/upload acceptance flow.
-- Focused RED/GREEN runs provide development feedback. Do not repeatedly run the whole
-  final gate after each edit, commit or push. A hook that actually runs a required check
-  may supply its evidence; an identity-only hook supplies none.
-- On failure, fix and rerun affected checks. Reuse a passed result only when its recorded
-  inputs, tool/runtime configuration, needed artifacts and relevant environment remain
-  valid. Database/browser results need more than an unchanged source hash. Never label
-  a skipped command as freshly passed. A receipt alone is not a cache; inspect what the
-  runner actually supports before promising resume or cross-commit reuse.
-- Reuse existing sound task caches; do not enable caching with undeclared outputs or
-  environment inputs. Parallelize only checks whose resources are independent; shared
-  database/reset operations remain coordinated. Builds and memory-heavy checks must fit
-  the machine. No blanket cache or concurrency increase is required for a solo developer.
-- Replan if the candidate or base changes. A single-developer queue normally avoids that
-  work through serial delivery, but still verifies that it is merging the tested code.
+Build a lazy project validation profile covering relevant commands, selectors,
+prerequisites, dependents, wrapper/subsumption edges, triggers, stateful resources and
+observed costs. Fingerprint validation topology (instructions, task graph, scripts, hooks,
+CI) separately from dependency/runtime state (manifests, lockfiles, toolchain, services,
+artifacts), invalidating only affected facts. Reuse this profile across pools while valid,
+but derive ticket-specific acceptance coverage for every new pool. A profile is not proof
+that a current candidate passed.
 
-## 4. Stop
+Prepare dependencies, generated artifacts and services only when needed. Reuse healthy
+services and sound task caches. Do not force caches, clean builds, reinstall dependencies
+or restart services unless policy requires it or a defect is being diagnosed.
 
-Honor `max=N` as the number of tickets completed in this invocation. Under `dryRun`,
-build and validate the current ticket, open its PR, then stop without merging. Do not
-unlock dependent tickets from unmerged work. Use a validation-only command or run
-selected checks separately if the project merge command always merges.
+Keep the full profile in durable state. Give each ticket worker only the relevant
+projection: current policy, the complete ticket, exact source pointers/hashes, reachable
+validation facts, still-valid receipts and verified note excerpts.
 
-Stop when the pool is drained or its remaining tickets are blocked on decisions or
-external dependencies. Difficulty, a failing test, or an inferable implementation choice
-is work to resolve, not a reason to skip a ticket.
+## 3. Maintain the project note
 
-If a genuine unspecified product decision blocks a ticket, save `blocked` with the
-reason and affected dependencies, report it and continue other eligible tickets.
-Comment on the issue only when that communication is authorized. Stop and report after
-three consecutive such skips or five total. Do not repeatedly select the same blocker.
+Before creating or updating the note, read
+[references/project-notes.md](references/project-notes.md) and follow its schema,
+freshness, locking and size rules. Refresh it at start/resume, after a ticket completes or
+becomes active or blocked, before a long external wait, after completion, and when the
+invocation stops—not after every command or short-lived transition.
+
+Derive the note from pool state and receipts. Never create a test, worker, branch, commit,
+push or PR for the note itself. Note-writing failure must not alter queue state; regenerate
+it at the next boundary. Its future-ticket lessons do not change the approved pool or
+automatically become project policy.
+
+## 4. Work the frontier
+
+Resume an active ticket first. Otherwise choose an eligible `todo` ticket whose blockers
+are satisfied. Follow authoritative priority; among equals prefer critical-path impact
+and a reusable healthy environment, with ticket number as the final tie-breaker. Exclude
+`blocked` tickets until their reason is resolved.
+
+1. **Synchronize at ticket boundaries.** Fetch/fast-forward the base before the first
+   ticket and after each merge. Branch from that base; the worker does not pull again.
+   Keep one ticket per branch/PR unless authoritative instructions combine delivery.
+2. **Create only necessary fixtures.** Use run/ticket-owned mutable data when isolation is
+   needed and reuse factories. Do not reset shared data or prepare a database for work
+   that does not need one. Rebuild only a run-owned scratch environment under its contract.
+3. **Use one fresh worker per ticket.** In Codex use `spawn_agent` with
+   `fork_turns: "none"`; otherwise use the host equivalent. Reuse that worker for all
+   repairs and validation feedback on the ticket. The orchestrator alone changes queue
+   state and merges unless project instructions delegate them.
+4. **Develop with focused feedback.** Let the runner choose its development method. It
+   runs focused and uncovered ticket-specific checks, inspects its diff and prepares a
+   stable candidate. Tell it not to run the broad final gate, separate review or
+   CI-triggering push unless the orchestrator explicitly assigns that responsibility.
+5. **Persist meaningful transitions.** Atomically record status, branch/head, PR URL,
+   validation plan/receipt and blocker at `working`, `pr_open`, `validating`, `validated`,
+   `blocked` and `done`. `done` requires a confirmed merge. Inspect uncertain external
+   results before retrying; a closed unmerged PR is not done.
+6. **Review before the costly final gate.** Assign exactly one review owner. The
+   orchestrator owns it by default and consumes a runner-owned review only when project
+   instructions delegate it. Run one planned broad review; after review-driven edits,
+   verify resolved findings and inspect the changed final diff without repeating
+   unchanged review work. `review=none` creates no reviewer/evaluator.
+7. **Validate and deliver one successful evidence set.** Assign each required assurance
+   a primary evidence source: focused work, hook, local gate or CI. Run all mandatory
+   gates even when they overlap, but add no manual duplicate. Detect triggers before
+   choosing local validation before the first push versus CI as final owner. Push/open
+   only a stable candidate unless the required validator is remote-only.
+8. **Finalize, then advance.** Confirm the external merge first. Atomically update the
+   authoritative queue: save the merge receipt, mark `done`, clear the active ticket and
+   derive counts/frontier from ticket statuses. Regenerate the advisory note separately,
+   synchronize the base once and do not rerun a full suite on the same post-merge tree.
+
+## 5. Validate without duplication
+
+- Prefer one affected dependency graph over root commands that repeat builds or tests.
+  Retain required stateful, migration, concurrency and end-to-end checks it does not cover.
+- Each receipt records expanded command/selector, purpose, outcome, duration, tested
+  head/tree and base, relevant input/runtime fingerprints, cache use and artifact pointers.
+  Stateful checks add redacted build, schema, fixture, service and runtime fingerprints.
+  Point to existing logs; do not copy logs or artifacts into queue state. Atomically update
+  a compact per-pool metrics index (runs, duration, failures, reuse and failure signatures)
+  so note generation never rescans the full receipt history.
+- Record an evidence-retention policy during preparation. Deduplicate artifacts and keep a
+  compact attempt index. On pool completion, follow project policy to compress/archive or
+  remove only run-owned superseded artifacts; retain required audit/resume evidence and
+  never let cleanup become its own validation run.
+- Reuse a pass by default only for the exact candidate with matching inputs. Cross-commit
+  reuse requires a trustworthy affected-graph or cache proof. After changes, invalidate
+  only affected evidence; rerun a lightweight controller as needed, but rerun a full
+  subcommand only when its input closure or project policy requires it.
+- Order selected checks for fast failure and run expensive gates only on a stable
+  candidate. A failed final attempt is not a reason to replay already-valid checks.
+  Inspect unreached checks for the same broken invariant before the next costly attempt.
+- If a failure may be intermittent, obey any stricter project policy; otherwise retry the
+  failing case/job at most once per candidate and normalized signature. A changed outcome
+  is only `suspected-intermittent`. Then diagnose or record a genuine infrastructure
+  blocker; never weaken assertions merely to obtain green.
+- Parallelize only resource-independent checks. Keep shared databases and memory-heavy
+  work coordinated. Never report a skipped command as freshly passed.
+
+## 6. Stop
+
+Honor `max=N` as tickets completed in this invocation. Under `noMerge`/`dryRun`, validate
+and open the current PR, then stop without merging or unlocking dependents.
+
+Continue while any eligible ticket remains. Stop when the pool is drained or every
+remaining ticket is blocked on a genuine product decision or external dependency.
+Difficulty, failure or an inferable implementation choice is work to resolve, not skip.
+Persist blockers and affected dependents; comment on the tracker only when authorized.
+Refresh `PROJECT-NOTES.md`, then report the queue result, note path and most useful
+verified learnings.
 
 Keep feature pushes, required checks and the user's scope intact throughout the loop.
