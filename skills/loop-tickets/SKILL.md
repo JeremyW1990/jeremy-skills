@@ -19,9 +19,10 @@ Project notes are advisory only.
 
 Review defaults to `on`. `review=on` runs exactly one separate code-review pass per ticket
 on its stable candidate; `review=off` omits that pass. Neither setting removes focused
-ticket tests or mandatory repository protections. Resolve the implementation runner from
-project instructions, otherwise use `implement`. Honor other user constraints expressed
-in natural language without inventing more flags. No option authorizes deployment.
+ticket tests, the merge-time static gate or mandatory repository protections. Resolve the
+implementation runner from project instructions, otherwise use `implement`. Honor other
+user constraints expressed in natural language without inventing more flags. No option
+authorizes deployment.
 
 ## 1. Capture the pool and durable state
 
@@ -55,11 +56,12 @@ authoritative queue state remains outside the repository.
 
 Before creating or updating the note, read
 [references/project-notes.md](references/project-notes.md). Read the synchronized base
-version at start/resume. After focused tests and optional review, update it once before
-the ticket's first push. Make it an `effective-on-merge` projection: mark the current
-ticket `done` and derive the next frontier, but do not claim a PR URL, merge SHA or remote
-CI result that does not exist yet. If the PR does not merge, the projection never reaches
-the default branch; if it merges, the projected state becomes true.
+version at start/resume. After focused tests and optional review, update it before the
+ticket's first push, and reconcile it if the target later advances. Make it an
+`effective-on-merge` projection: mark the current ticket `done` and derive the next
+frontier, but do not claim a PR URL, merge SHA or remote CI result that does not exist
+yet. If the PR does not merge, the projection never reaches the target branch; if it
+merges, the projected state becomes true.
 
 Stage it with the ticket's final local commit or amend before the first push. Never create
 a note-only branch, commit, push, PR, CI run or test. Failure to safely update/stage the
@@ -86,9 +88,11 @@ test selectors, current receipts and verified note excerpts.
 Resume an active ticket first. Otherwise choose an eligible `todo` ticket whose blockers
 are satisfied. Follow authoritative priority; use ticket number as the final tie-breaker.
 
-1. **Synchronize once.** Fetch/fast-forward the base before the first ticket and after
-   each merge. Branch from that base; the worker does not pull again. Keep one ticket per
-   branch/PR unless authoritative ticket text combines delivery.
+1. **Synchronize between tickets.** Fetch/fast-forward the target branch before the first
+   ticket and after each merge. Branch from that base; the worker does not pull again.
+   The orchestrator refreshes the target again at the merge gate because other agents
+   may have advanced it. Keep one ticket per branch/PR unless authoritative ticket text
+   combines delivery.
 2. **Use one worker per ticket.** In Codex use `spawn_agent` with `fork_turns: "none"`;
    otherwise use the host equivalent. Reuse the same worker for all repairs on that
    ticket. Only the orchestrator changes queue state or merges.
@@ -103,23 +107,26 @@ are satisfied. Follow authoritative priority; use ticket number as the final tie
    not create a reviewer/evaluator.
 5. **Deliver once stable.** After focused tests and optional review, regenerate the
    effective-on-merge note and stage its exact path with the ticket's final local commit.
-   Push the stable branch once, then open the PR once. Allow each mandatory hook, merge
-   command, branch-protection and CI mechanism to run once; do not bypass them or manually
-   duplicate their coverage. Merge when current-ticket evidence and required protections
-   are green.
+   Push the first stable candidate and open one PR; avoid intermediate CI-triggering
+   pushes. A repair after target movement may require another stable-candidate push.
+   Allow each mandatory hook, merge command, branch-protection and CI mechanism to run
+   once per candidate; do not bypass them or duplicate checks on the same inputs. Run the
+   merge-time static gate below before merging. Merge only when it, current-ticket
+   evidence and required protections are green.
 6. **Finalize, then advance.** Confirm the merge, atomically mark the ticket `done`, clear
    the active ticket and derive the new frontier in external state. Synchronize the base,
    confirm the projected note landed with the PR and select the next ticket. Do not create
    a follow-up note commit.
 
-## 5. Focused test policy
+## 5. Focused development test policy
 
 - Run only explicit test cases/files/selectors that prove the current ticket's acceptance
   criteria or directly changed behavior. Targeted lint, typecheck or build checks may run
   when the ticket or project requires them; they do not broaden test selection.
-- Do not manually run repository-wide, package-wide or full regression suites. Do not run
-  tests from earlier tickets merely because they ran before; include one only when the
-  current ticket changes the behavior it exercises.
+- Do not manually run repository-wide, package-wide or full regression *test* suites.
+  Do not run tests from earlier tickets merely because they ran before; include one only
+  when the current ticket changes the behavior it exercises. Section 6 separately
+  requires broad static checks on the integrated merge candidate.
 - Never manually repeat a passed test on unchanged relevant inputs. After a code change,
   rerun only selectors whose behavior or inputs changed. After a failure, diagnose and
   rerun the failed or invalidated selector, not every current-ticket test.
@@ -127,14 +134,44 @@ are satisfied. Follow authoritative priority; use ticket number as the final tie
   otherwise use the narrowest supported selector and record the limitation. Never fall
   back to a full suite merely because selection is inconvenient.
 - Broader mandatory hooks or CI may run automatically. Let each mechanism run once for a
-  stable candidate and reuse its result; do not directly launch an equivalent suite. If
-  project policy separately requires direct invocation of a full regression suite, report
-  the conflict instead of running it; a delivery command whose hook launches one is an
-  automatic side effect, not a direct invocation.
+  stable candidate and reuse its result when it covers the same inputs; a PR-head result
+  does not replace a merge-candidate result. If project policy separately requires direct
+  invocation of a full regression *test* suite, report the conflict instead of running
+  it; a delivery command whose hook launches one is an automatic side effect, not a
+  direct invocation.
 - Record selector, purpose, outcome, duration, tested head and relevant input fingerprints
   in a compact receipt. Never call a skipped or inherited result freshly passed.
 
-## 6. Stop
+## 6. Merge-time static gate
+
+After the PR opens and before merging into its target (`develop` when that is the target),
+the orchestrator fetches the latest target and PR heads and validates their integrated
+result. Record both head SHAs and the candidate's tree; green checks on the PR head alone
+or on an older target are insufficient.
+
+Run the project's configured repository-wide static checks across all applicable
+packages/workspaces, not just those changed by this ticket: package or lockfile integrity
+checks, lint, TypeScript typechecks and required build/compile or other static checks. Use
+an up-to-date merge-queue/merged-result CI gate when it covers those checks on that exact
+candidate. Otherwise prepare the result of the planned merge method in an isolated
+worktree/ref and run the missing checks there. Do not reinstall dependencies or force a
+clean build unless the checks require it, and do not manually duplicate equivalent
+checks already green on the same candidate. This gate does not add a manual full
+regression *test* suite.
+
+An integration conflict or failed check blocks the merge. Repair on the ticket branch,
+rerun invalidated focused tests, and validate the new integration result. If the target
+advanced, also reconcile any changed tracked project note or ticket-relevant instructions
+against the new base; never merge a stale projection. If either head changes before merge,
+discard stale gate receipts and repeat the full applicable static gate on the new
+candidate. Merge only against the validated target/head pair, using a merge queue,
+up-to-date protection or an equivalent conditional merge to prevent a race. If none is
+available without bypassing protections, stop for user direction. Confirm the landed tree
+matches the validated result; if it does not, run the static gate on the landed tree and
+do not advance the queue while it is red. Keep gate receipts with the two heads, candidate
+tree, check coverage and outcomes in external state.
+
+## 7. Stop
 
 Continue while any eligible ticket remains. Stop when the pool is drained or every
 remaining ticket is blocked on a genuine product decision, policy conflict or external

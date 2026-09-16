@@ -1,9 +1,9 @@
 # Project Notes
 
 `.loop-tickets/project-notes.md` is a tracked project dashboard and learning ledger shared
-through GitHub. It is derived from authoritative external queue state and focused-test
-receipts; never use it to resume a queue, replace a ticket or skip a current-ticket test
-or mandatory protection.
+through GitHub. It is derived from authoritative external queue state and available
+validation receipts; never use it to resume a queue, replace a ticket or skip a
+current-ticket test, merge-time static gate or mandatory protection.
 
 ## Location and delivery
 
@@ -13,10 +13,10 @@ path contains an unrelated file or an incompatible schema, preserve it and block
 for user direction.
 
 After implementation, focused tests and optional review, verify the base is stable, then
-write and stage the final note once. It is an effective-on-merge projection: show the
-current ticket as `done` and derive the state that results if this change merges. Stage
-only the exact note path with the ticket's final local commit before its first push. If
-an old local ignore rule hides the initial file, use
+write and stage the note before the first push. It is an effective-on-merge projection:
+show the current ticket as `done` and derive the state that results if this change
+merges. Stage only the exact note path with the ticket's final local commit before its
+first push. If an old local ignore rule hides the initial file, use
 `git add -f -- .loop-tickets/project-notes.md`; do not change `.gitignore` or stage the
 whole directory.
 
@@ -78,14 +78,17 @@ environment values, customer data or fixture payloads into this GitHub-shared fi
 Start from the synchronized base version and merge rows deterministically by pool ID and
 observation ID. If the base changes after a local draft but before the first push, discard
 that unpushed draft, synchronize, rerun only invalidated current-ticket tests and stage
-the replacement; only the final pushed version counts as the ticket's note update. Keep
-temporary files outside the tracked directory and stage only
+the replacement. If it changes after the PR opens, reconcile any stale projection with
+the new base in the same ticket branch before the merge gate; fold the correction into
+the ticket's repair rather than creating a note-only follow-up. Keep temporary files
+outside the tracked directory and stage only
 `.loop-tickets/project-notes.md`. A generation, schema or staging failure blocks the
 ticket's push unless the user waives the note.
 
-The current ticket's mandatory hook/CI results cannot appear in its projection because
-they happen after the single push. A later ticket may add already-known remote metrics,
-but never create a push solely to backfill them.
+Keep the current ticket's mandatory hook/CI and merge-time static-gate results in external
+state: the final gate follows its final branch push, and earlier results may become stale
+during repairs. A later ticket may add already-known metrics, but never create a push
+solely to backfill them.
 
 `ticket-design` observations can flag over-fragmentation, hidden dependencies, repeated
 end-to-end setup or poor validation-to-implementation ratios. They are human guidance and

@@ -13,7 +13,7 @@ The durable loop between `/to-tickets` and a ticket runner.
 ticket runner such as `/implement` or `/tdd` builds one. Nothing drove the pool.
 `loop-tickets` is that: validate the graph, take the next implementation ticket whose
 blockers are done, branch, give it fresh test data, run the selected workflow, verify
-once, merge, and take the next.
+the ticket, check its integration with the current target branch, merge, and take the next.
 
 It adds only what running *many* tickets needs and running one does not:
 
@@ -25,8 +25,11 @@ It adds only what running *many* tickets needs and running one does not:
 - one worker retained through each ticket's repairs, so an attempt does not pay repeated
   discovery and handoff costs
 - ticket-owned persistent test data when needed, without resetting a shared database
-- current-ticket-only local tests, so earlier-ticket and full-regression suites are not
-  repeated manually
+- focused per-ticket development tests, without manually repeating earlier-ticket or
+  full-regression suites
+- a pre-merge static gate for the current target branch and PR integration candidate,
+  covering configured lint, typecheck, build and other relevant static commands across
+  all packages and workspaces
 - categorized blocker handling, so one undecidable ticket does not halt a runnable frontier
 
 Each implementation ticket gets its own branch and PR. Project configuration or
@@ -54,10 +57,12 @@ Code review defaults on. To omit the separate review pass:
 $loop-tickets review=off
 ```
 
-The loop runs only the smallest local test selectors related to the current ticket. It
-does not manually run full regression suites or tests from earlier tickets without a
-current-ticket reason. Mandatory hooks, branch protections and CI may run broader checks
-once; the loop does not bypass or duplicate them.
+During development, the loop runs only the smallest local test selectors related to the
+current ticket; it does not manually run full regression suites or tests from earlier
+tickets without a current-ticket reason. Before merging, it verifies the integration
+candidate against the target branch's latest state (including `develop` when targeted)
+with all configured package/workspace static checks. Required CI for that exact candidate
+can satisfy equivalent checks; the loop does not bypass protections or duplicate them.
 
 ### [`implement`](skills/implement)
 
