@@ -88,11 +88,16 @@ test selectors, current receipts and verified note excerpts.
 Resume an active ticket first. Otherwise choose an eligible `todo` ticket whose blockers
 are satisfied. Follow authoritative priority; use ticket number as the final tie-breaker.
 
-1. **Synchronize between tickets.** Fetch/fast-forward the target branch before the first
-   ticket and after each merge. Branch from that base; the worker does not pull again.
-   The orchestrator refreshes the target again at the merge gate because other agents
-   may have advanced it. Keep one ticket per branch/PR unless authoritative ticket text
-   combines delivery.
+1. **Synchronize before every ticket.** After selecting a ticket but before creating its
+   branch/worktree or spawning its worker, fetch the latest `develop` from the repository's
+   GitHub remote and fast-forward the local `develop` base to that remote-tracking commit.
+   Repeat this immediately before every ticket, including a resumed ticket, even if the
+   preceding ticket just merged or an earlier fetch appeared current. If the authoritative
+   queue explicitly targets another branch, substitute that exact target for `develop` but
+   keep the same mandatory per-ticket refresh. Branch from the freshly synchronized commit;
+   the worker does not pull again. The orchestrator refreshes the target again at the merge
+   gate because other agents may have advanced it. Keep one ticket per branch/PR unless
+   authoritative ticket text combines delivery.
 2. **Use one worker per ticket.** In Codex use `spawn_agent` with `fork_turns: "none"`;
    otherwise use the host equivalent. Reuse the same worker for all repairs on that
    ticket. Only the orchestrator changes queue state or merges.
@@ -114,8 +119,9 @@ are satisfied. Follow authoritative priority; use ticket number as the final tie
    merge-time static gate below before merging. Merge only when it, current-ticket
    evidence and required protections are green.
 6. **Finalize, then advance.** Confirm the merge, atomically mark the ticket `done`, clear
-   the active ticket and derive the new frontier in external state. Synchronize the base,
-   confirm the projected note landed with the PR and select the next ticket. Do not create
+   the active ticket and derive the new frontier in external state. Confirm the projected
+   note landed with the PR and select the next ticket. Before that ticket starts, repeat
+   the mandatory synchronization in step 1; no earlier fetch counts for it. Do not create
    a follow-up note commit.
 
 ## 5. Focused development test policy
