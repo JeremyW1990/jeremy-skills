@@ -2,8 +2,8 @@
 
 `.loop-tickets/project-notes.md` is a tracked project dashboard and learning ledger shared
 through GitHub. It is derived from authoritative external queue state and available
-validation receipts; never use it to resume a queue, replace a ticket or skip a
-current-ticket test, merge-time static gate or mandatory protection.
+validation receipts; never use it to resume a queue, replace a ticket or skip an
+authorized current-ticket test, required repository check or mandatory protection.
 
 ## Location and delivery
 
@@ -12,17 +12,18 @@ branch's worktree. Never write the main worktree from a linked ticket worktree. 
 path contains an unrelated file or an incompatible schema, preserve it and block delivery
 for user direction.
 
-After implementation, focused tests and optional review, verify the base is stable, then
-write and stage the note before the first push. It is an effective-on-merge projection:
-show the current ticket as `done` and derive the state that results if this change
-merges. Stage only the exact note path with the ticket's final local commit before its
-first push. If an old local ignore rule hides the initial file, use
+After implementation, authorized focused tests (or an explicit unrun record) and optional
+review, verify the base is stable, then write and stage the note before the first push.
+It is an effective-on-merge projection: show the current ticket as `done` and derive the
+state that results if this change merges. Stage only the exact note path with the
+ticket's final local commit before its first push. If an old local ignore rule hides the
+initial file, use
 `git add -f -- .loop-tickets/project-notes.md`; do not change `.gitignore` or stage the
 whole directory.
 
 Never create a note-only branch, commit, push, PR, review, test or CI run. The projection
 reaches the base branch only if the implementation PR merges, at which point it is true.
-Keep transient statuses, PR URLs, merge SHAs and current remote-CI results in external
+Keep transient statuses, PR URLs, merge SHAs and current merge-action results in external
 state because recording them would require another push.
 
 Use this compact shape:
@@ -77,18 +78,19 @@ environment values, customer data or fixture payloads into this GitHub-shared fi
 
 Start from the synchronized base version and merge rows deterministically by pool ID and
 observation ID. If the base changes after a local draft but before the first push, discard
-that unpushed draft, synchronize, rerun only invalidated current-ticket tests and stage
-the replacement. If it changes after the PR opens, reconcile any stale projection with
-the new base in the same ticket branch before the merge gate; fold the correction into
-the ticket's repair rather than creating a note-only follow-up. Keep temporary files
+that unpushed draft, synchronize, rerun only authorized invalidated current-ticket tests,
+and stage the replacement. If it changes after the PR opens, reconcile any stale
+projection with the new base in the same ticket branch before merging; fold the
+correction into the ticket's repair rather than creating a note-only follow-up. Keep
+temporary files
 outside the tracked directory and stage only
 `.loop-tickets/project-notes.md`. A generation, schema or staging failure blocks the
 ticket's push unless the user waives the note.
 
-Keep the current ticket's mandatory hook/CI and merge-time static-gate results in external
-state: the final gate follows its final branch push, and earlier results may become stale
-during repairs. A later ticket may add already-known metrics, but never create a push
-solely to backfill them.
+Keep the current ticket's test execution status, required repository check results and
+merge result in external state. Observe checks at the points configured by the repository;
+earlier results may become stale during repairs. A later ticket may add already-known
+metrics, but never create a push solely to backfill them.
 
 `ticket-design` observations can flag over-fragmentation, hidden dependencies, repeated
 end-to-end setup or poor validation-to-implementation ratios. They are human guidance and

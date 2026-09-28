@@ -27,10 +27,10 @@ It adds only what running *many* tickets needs and running one does not:
 - ticket-owned persistent test data when needed, without resetting a shared database
 - focused per-ticket development tests, without manually repeating earlier-ticket or
   full-regression suites
-- a pre-merge static gate for the current target branch and PR integration candidate,
-  covering configured lint, typecheck, build and other relevant static commands across
-  all packages and workspaces
-- categorized blocker handling, so one undecidable ticket does not halt a runnable frontier
+- observation of repository-managed check results, keeping failures on the current ticket
+  with the same worker until repaired, without defining CI/CD logic or duplicating checks
+- categorized product and dependency blockers; unsatisfied required checks keep the
+  current ticket active and prevent advancement to another ticket
 
 Each implementation ticket gets its own branch and PR. Project configuration or
 authoritative ticket text may explicitly state that one implementation satisfies multiple
@@ -59,10 +59,11 @@ $loop-tickets review=off
 
 During development, the loop runs only the smallest local test selectors related to the
 current ticket; it does not manually run full regression suites or tests from earlier
-tickets without a current-ticket reason. Before merging, it verifies the integration
-candidate against the target branch's latest state (including `develop` when targeted)
-with all configured package/workspace static checks. Required CI for that exact candidate
-can satisfy equivalent checks; the loop does not bypass protections or duplicate them.
+tickets without a current-ticket reason. Before every ticket, it refreshes the target
+branch (`develop` by default) and starts new work from that latest version. It observes
+the repository's required local or remote check results and follows its merge workflow.
+Failed checks stay on the same ticket for repair; the loop does not define CI/CD logic,
+bypass protections or duplicate checks.
 
 ### [`implement`](skills/implement)
 
