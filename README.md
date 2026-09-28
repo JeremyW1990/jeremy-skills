@@ -27,6 +27,8 @@ It adds only what running *many* tickets needs and running one does not:
 - ticket-owned persistent test data when needed, without resetting a shared database
 - focused per-ticket development tests, without manually repeating earlier-ticket or
   full-regression suites
+- conditional UI guidance before implementation, then focused UI/UX review and actual
+  Playwright acceptance with inspected screenshots when user-visible behavior changes
 - observation of repository-managed commit and final merge checks, keeping failures on
   the current ticket or pool integration stage without defining CI/CD logic or duplicating
   checks
@@ -55,7 +57,13 @@ frontier, validation cost, repeated waste and future ticket-design lessons witho
 note-only commits or pushes. External state records actual check and delivery results.
 Existing matching state is reused on resume.
 
-Code review defaults on. To omit the separate review pass:
+Code review defaults on. Tickets with user-visible UI or interaction changes also use
+`ui-ux-pro-max` before implementation against the approved design, then focused UI/UX
+review and Playwright browser acceptance on the affected pages, states and viewports.
+Valid implementation evidence can be reused. `review=off` omits only the separate code
+review; required UI acceptance still applies under the project's test authorization.
+
+To omit the separate code-review pass:
 
 ```text
 $loop-tickets review=off

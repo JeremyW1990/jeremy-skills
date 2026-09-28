@@ -1,6 +1,6 @@
 ---
 name: loop-tickets
-description: "Complete a dependency-ordered ticket pool on one branch, with checked commits per ticket and one final PR, resumable state, repository-local project notes, project-authorized focused testing, and optional code review. Use after to-tickets or when asked to work a ticket queue end to end."
+description: "Complete a dependency-ordered ticket pool on one branch, with checked commits per ticket and one final PR, resumable state, repository-local project notes, project-authorized focused testing, conditional UI acceptance, and optional code review. Use after to-tickets or when asked to work a ticket queue end to end."
 ---
 
 # Loop Tickets
@@ -20,9 +20,11 @@ Project notes are advisory only.
 `loop-tickets [review=on|off]`
 
 Review defaults to `on`. `review=on` runs exactly one separate code-review pass per ticket
-on its stable candidate; `review=off` omits that pass. Neither setting changes project
-test authorization, repository-managed checks or mandatory repository protections.
-Resolve the implementation runner from project instructions, otherwise use `implement`.
+on its stable candidate; `review=off` omits only that separate code-review pass. Required
+UI/UX review and browser acceptance still apply to tickets that affect the interface.
+Neither setting changes project test authorization, repository-managed checks or mandatory
+repository protections. Resolve the implementation runner from project instructions,
+otherwise use `implement`, with `tdd` where applicable and authorized.
 Honor other user constraints expressed in natural language without inventing more flags.
 
 ## 1. Capture the pool and durable state
@@ -99,7 +101,11 @@ force caches, clean builds, reinstall dependencies or reset shared data unless r
 to diagnose a demonstrated defect.
 
 Give the worker the complete ticket plus only relevant project rules, source pointers,
-test selectors, current receipts and verified note excerpts.
+test selectors, current receipts and verified note excerpts. If the ticket changes actual
+user-visible presentation or interaction, read [references/ui-acceptance.md](references/ui-acceptance.md)
+before implementation and include its scoped UI plan. Classify by the resulting behavior,
+not by whether the changed file belongs to a frontend package. Purely non-UI work follows
+the normal implementation and review path without a browser stage.
 
 ## 4. Commit tickets in dependency order
 
@@ -111,22 +117,29 @@ are satisfied. Follow authoritative priority; use ticket number as the final tie
 2. **Use one worker per ticket.** In Codex use `spawn_agent` with `fork_turns: "none"`;
    otherwise use the host equivalent. Reuse the same worker for all repairs on that
    ticket. Pass the shared branch and local-commit boundary to the runner; any runner
-   defaults for separate branches or PR delivery yield to this pool workflow. Only the
-   orchestrator changes queue state or performs final delivery.
-3. **Implement with authorized focused tests.** The worker runs only the smallest
-   selectors proving the current ticket when project instructions and the current
-   conversation authorize tests; otherwise it records them as unrun and inspects the
-   diff to prepare a stable candidate. It does not run a full regression suite, a broad
-   final gate, a separate review or an intermediate push.
-4. **Review if enabled.** Under `review=on`, the orchestrator invokes the configured
-   project reviewer or `code-review` once on this ticket's diff from its recorded starting
-   commit, including its uncommitted changes. Do not review all preceding pool commits
-   again. Supply existing test receipts or unrun status and request standards/spec review
-   without test execution. After fixes, rerun only directly affected current-ticket
-   selectors when authorized. Under `review=off`, do not create a reviewer/evaluator.
-5. **Commit through the repository workflow.** After focused tests or a recorded skip and
-   optional review, stage the implementation and required note. Let the repository's
-   before-commit hook run on every commit and observe its result as described in section 6.
+   defaults for separate branches, duplicate validation/review or PR delivery yield to
+   this pool workflow. Only the orchestrator changes queue state or performs final delivery.
+3. **Implement with authorized focused tests.** Use `implement` or the selected runner,
+   applying `tdd` where appropriate. For UI tickets, first use `ui-ux-pro-max` against the
+   existing approved design as described in the UI reference. The worker runs only the
+   smallest selectors proving the current ticket when authorized by project policy or
+   the current conversation, respecting their limits; otherwise it records them as unrun
+   and inspects the diff to prepare a stable candidate. It does not run a full regression
+   suite, a broad final gate, a separate review or an intermediate push.
+4. **Review and establish acceptance.** Under `review=on`, the orchestrator invokes the
+   configured project reviewer or `code-review` once on this ticket's diff from its
+   recorded starting commit, including its uncommitted changes. Do not review preceding
+   pool commits again. Supply existing receipts or unrun status; the code-review pass
+   inspects standards/spec compliance without running tests. For UI tickets, coordinate
+   that pass with focused UI/UX review and actual Playwright browser acceptance, including
+   inspection of screenshots, as described in the UI reference. Reuse valid implementation
+   evidence instead of rerunning unchanged checks. Send failures to the same worker and
+   rerun only failed or invalidated checks when authorized. `review=off` omits the separate
+   code reviewer/evaluator, but does not omit required UI review or browser acceptance.
+5. **Commit through the repository workflow.** After required acceptance is established,
+   with non-required unrun checks recorded and optional code review complete, stage the
+   implementation and required note. Let the repository's before-commit hook run on every
+   commit and observe its result as described in section 6.
    Do not bypass it or manually duplicate its checks. A required acceptance criterion
    that cannot be established without an unauthorized test remains a blocker.
 6. **Record checked progress, then advance.** Confirm the commit exists and its required
@@ -142,8 +155,11 @@ only sufficient acceptance evidence and the final checked candidate permit advan
 ## 5. Focused development test policy
 
 Project and current-conversation test authorization takes precedence over this skill.
-When project policy requires explicit execution authorization, a ticket asking for test
-coverage authorizes writing tests, not executing them.
+Existing standing authorization in project policy counts; do not ask again for execution
+already within its scope. When explicit execution authorization is still required, a
+ticket asking for test coverage authorizes writing tests, not executing them. Required
+UI validation remains a blocker when it is unrun or unavailable; never relabel it optional
+to advance the ticket.
 
 - When tests are authorized, run only explicit cases/files/selectors that prove the
   current ticket's acceptance criteria or directly changed behavior.
@@ -185,7 +201,19 @@ work. Let the normal repository workflow check the repaired commit; rerun invali
 focused tests only when authorized. Do not advance to another ticket. If execution is
 externally blocked, persist the blocker and stop until it can resume.
 
-After every ticket is `committed`, enter final integration on the same pool branch:
+After every ticket is `committed`, enter final integration on the same pool branch.
+For a pool containing UI tickets, first establish an accepted candidate identity after
+the final note and commit changes. Verify that every required UI acceptance receipt
+still applies to its relevant inputs; reuse unchanged evidence without rerunning it.
+Before invoking any workflow that can merge remotely, use the repository's supported
+accepted-candidate/tree fence, or an equivalent preparation boundary that rejects a
+helper-created or selected candidate with a different identity before invoking remote
+merge. A changed candidate must stop for acceptance reassessment. Preserve the
+repository's target-freshness protections and verify the actual merge result; the fence
+does not make concurrent updates across clones atomic. If this preparation boundary is
+unavailable, retain the pool with that precise blocker; do not invoke an all-in-one merge
+helper and hope to validate its integrated code afterward. See the UI reference for
+renewing acceptance without repeating unchanged checks.
 
 1. Push the stable pool candidate and open one PR for the entire pool, or reuse its saved
    PR on resume. Establish this PR before invoking a repository merge entrypoint that
@@ -203,7 +231,10 @@ After every ticket is `committed`, enter final integration on the same pool bran
    repository decide when prior results remain valid; do not repeat static checks merely
    because a PR is merging. If further target movement invalidates the candidate, repeat
    the necessary integration and checked-commit steps on this branch and update this PR
-   before retrying. Never bypass freshness protections to force a stale merge.
+   before retrying. For a UI pool, reassess affected acceptance, run only invalidated
+   authorized browser checks and inspect their screenshots before recording a newly
+   accepted identity and retrying with its fence. Never simply replace the fence with
+   the latest head, or bypass freshness protections to force a stale merge.
 4. Keep a failed or pending final gate in the pool's integration stage. Preserve the
    branch, PR, committed-ticket records and relevant workers; repair without starting a
    new pool or declaring tickets delivered. If the failure invalidates a ticket's

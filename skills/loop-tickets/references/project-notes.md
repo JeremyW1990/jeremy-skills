@@ -94,10 +94,12 @@ integration or repair commit, never a note-only follow-up. Keep temporary files 
 the tracked directory and stage only `.loop-tickets/project-notes.md`. A generation,
 schema or staging failure blocks the associated commit unless the user waives the note.
 
-Keep actual test execution status, required repository check results and merge results
-in external state. Observe checks at the points configured by the repository; earlier
-results may become stale during repairs. A later implementation commit may include
-already-known metrics, but never create a commit or push solely to backfill them.
+Keep actual test execution status, required UI acceptance and inspected screenshot
+receipts, repository check results and merge results in external state. Do not embed
+screenshots or private browser content in this GitHub-shared note. Observe checks at the
+points configured by the repository; earlier results may become stale during repairs.
+A later implementation commit may include already-known metrics, but never create a
+commit or push solely to backfill them.
 
 `ticket-design` observations can flag over-fragmentation, hidden dependencies, repeated
 end-to-end setup or poor validation-to-implementation ratios. They are human guidance and
