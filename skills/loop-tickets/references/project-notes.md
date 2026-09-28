@@ -1,50 +1,57 @@
 # Project Notes
 
 `.loop-tickets/project-notes.md` is a tracked project dashboard and learning ledger shared
-through GitHub. It is derived from authoritative external queue state and available
-validation receipts; never use it to resume a queue, replace a ticket or skip an
-authorized current-ticket test, required repository check or mandatory protection.
+through the pool's single PR. It is derived from authoritative external queue state and
+available validation receipts; never use it to resume a queue, replace a ticket or skip
+an authorized test, required repository check or mandatory protection.
 
 ## Location and delivery
 
-Use the repository-relative path `.loop-tickets/project-notes.md` in the current ticket
-branch's worktree. Never write the main worktree from a linked ticket worktree. If the
-path contains an unrelated file or an incompatible schema, preserve it and block delivery
-for user direction.
+Use the repository-relative path `.loop-tickets/project-notes.md` in the pool branch's
+worktree. Never write the main worktree from a linked pool worktree. If the path contains
+an unrelated file or an incompatible schema, preserve it and block delivery for user
+direction. Existing `loop-tickets-project-notes/v1` notes can be upgraded to the v2 shape
+below, preserving useful observations and previously merged history.
 
 After implementation, authorized focused tests (or an explicit unrun record) and optional
-review, verify the base is stable, then write and stage the note before the first push.
-It is an effective-on-merge projection: show the current ticket as `done` and derive the
-state that results if this change merges. Stage only the exact note path with the
-ticket's final local commit before its first push. If an old local ignore rule hides the
-initial file, use
-`git add -f -- .loop-tickets/project-notes.md`; do not change `.gitignore` or stage the
-whole directory.
+review, write and stage the note with the ticket's final local commit. During the pool,
+use `cumulative-on-commit`: project the current ticket as `committed` if this commit
+succeeds, retain earlier committed tickets and derive the next frontier. State explicitly
+that this pool remains unmerged. Do not claim the pending hook has already passed;
+record its actual outcome afterward only in external state.
 
-Never create a note-only branch, commit, push, PR, review, test or CI run. The projection
-reaches the base branch only if the implementation PR merges, at which point it is true.
-Keep transient statuses, PR URLs, merge SHAs and current merge-action results in external
-state because recording them would require another push.
+For the last ticket's final commit, use `effective-on-merge` instead: project all pool
+tickets as `done` conditional on the one final PR merging. This is a labeled future
+projection, not a claim that delivery has already happened. Reconcile it during final
+integration if target movement or repairs change its assumptions.
+
+Stage only the exact note path with the implementation or integration commit. If an old
+local ignore rule hides the initial file, use
+`git add -f -- .loop-tickets/project-notes.md`; do not change `.gitignore` or stage the
+whole directory. Never create a note-only branch, commit, push, PR, review, test or CI run.
+Keep transient check outcomes, PR URLs, merge SHAs and merge-action results in external
+state because backfilling them would require another push.
 
 Use this compact shape:
 
 ```markdown
 ---
-schema: loop-tickets-project-notes/v1
+schema: loop-tickets-project-notes/v2
 repository: <canonical identity>
 updated_at: <ISO-8601>
-snapshot: effective-on-merge
-ticket: <current ticket ID>
+snapshot: cumulative-on-commit | effective-on-merge
+pool: <pool ID>
+ticket: <current or final ticket ID>
 ---
 
 > Advisory and derived; current sources, instructions, code and pool state win.
 
 ## Current pools
-| Pool/source version | Projected progress | Next frontier | Blocked | Next action |
-|---|---|---|---|---|
+| Pool/source version | Snapshot progress | Delivery state | Next frontier | Blocked | Next action |
+|---|---|---|---|---|---|
 
 ## Queue focus
-| Pool | Ticket | Title | Projected state | Next action or blocker |
+| Pool | Ticket | Title | Snapshot state | Next action or blocker |
 |---|---|---|---|---|
 
 ## Validation economics
@@ -56,9 +63,12 @@ ticket: <current ticket ID>
 |---|---|---|---|---|---|
 ```
 
-Show queue counts plus only active, frontier, blocked and recently completed tickets.
-Project the current ticket as completed and derive the resulting frontier. Collapse
-drained pools to one recent-summary row; external pool state holds the full history.
+Show counts plus only the active, frontier, blocked and recently committed or merged
+tickets. Distinguish committed-but-unmerged progress from merged history. In the final
+snapshot, label completion as effective only on merge and project no remaining frontier
+for this pool. Actual pending integration stays in external state. Collapse older
+delivered pools to one recent-summary row; external pool state holds the full history.
+Neither snapshot invents a future result or merge ID.
 
 Give each observation a stable ID and deduplicate repeated patterns by that ID, increasing
 an occurrence count instead of appending variants. Allowed statuses are `candidate`,
@@ -76,21 +86,18 @@ Remove superseded detail after its replacement is recorded. Never copy ticket bo
 code, full command output, absolute local paths, private tracker content, secrets,
 environment values, customer data or fixture payloads into this GitHub-shared file.
 
-Start from the synchronized base version and merge rows deterministically by pool ID and
-observation ID. If the base changes after a local draft but before the first push, discard
-that unpushed draft, synchronize, rerun only authorized invalidated current-ticket tests,
-and stage the replacement. If it changes after the PR opens, reconcile any stale
-projection with the new base in the same ticket branch before merging; fold the
-correction into the ticket's repair rather than creating a note-only follow-up. Keep
-temporary files
-outside the tracked directory and stage only
-`.loop-tickets/project-notes.md`. A generation, schema or staging failure blocks the
-ticket's push unless the user waives the note.
+Start from the target version captured at pool start and accumulate later ticket updates
+on the same branch. On resume, keep that accumulated note. At final integration, merge
+rows from the newly fetched target deterministically by pool ID and observation ID;
+preserve pool progress and reconcile stale assumptions. Include any correction with the
+integration or repair commit, never a note-only follow-up. Keep temporary files outside
+the tracked directory and stage only `.loop-tickets/project-notes.md`. A generation,
+schema or staging failure blocks the associated commit unless the user waives the note.
 
-Keep the current ticket's test execution status, required repository check results and
-merge result in external state. Observe checks at the points configured by the repository;
-earlier results may become stale during repairs. A later ticket may add already-known
-metrics, but never create a push solely to backfill them.
+Keep actual test execution status, required repository check results and merge results
+in external state. Observe checks at the points configured by the repository; earlier
+results may become stale during repairs. A later implementation commit may include
+already-known metrics, but never create a commit or push solely to backfill them.
 
 `ticket-design` observations can flag over-fragmentation, hidden dependencies, repeated
 end-to-end setup or poor validation-to-implementation ratios. They are human guidance and

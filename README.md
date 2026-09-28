@@ -11,15 +11,15 @@ The durable loop between `/to-tickets` and a ticket runner.
 
 `/to-tickets` breaks a plan into tracer-bullet tickets with their blocking edges, and a
 ticket runner such as `/implement` or `/tdd` builds one. Nothing drove the pool.
-`loop-tickets` is that: validate the graph, take the next implementation ticket whose
-blockers are done, branch, give it fresh test data, run the selected workflow, verify
-the ticket, check its integration with the current target branch, merge, and take the next.
+`loop-tickets` is that: validate the graph, start one branch from the latest target,
+implement and commit tickets in dependency order, then open one pool PR and follow the
+repository's workflow to integrate the latest target and merge.
 
 It adds only what running *many* tickets needs and running one does not:
 
 - the pool written to disk, so a compaction cannot lose it
 - a tracked `.loop-tickets/project-notes.md`, so every project shares its queue lessons
-  on GitHub through the same ticket PRs
+  on GitHub through the pool PR
 - dependency-closure validation, so a missing blocker cannot strand the run later
 - a fresh context per ticket, so ticket N+1 does not inherit ticket N's
 - one worker retained through each ticket's repairs, so an attempt does not pay repeated
@@ -27,14 +27,17 @@ It adds only what running *many* tickets needs and running one does not:
 - ticket-owned persistent test data when needed, without resetting a shared database
 - focused per-ticket development tests, without manually repeating earlier-ticket or
   full-regression suites
-- observation of repository-managed check results, keeping failures on the current ticket
-  with the same worker until repaired, without defining CI/CD logic or duplicating checks
-- categorized product and dependency blockers; unsatisfied required checks keep the
-  current ticket active and prevent advancement to another ticket
+- observation of repository-managed commit and final merge checks, keeping failures on
+  the current ticket or pool integration stage without defining CI/CD logic or duplicating
+  checks
+- categorized product and dependency blockers; checked commits can satisfy ordinary
+  dependencies within the pool, while explicit merged or deployed prerequisites still
+  require those states
 
-Each implementation ticket gets its own branch and PR. Project configuration or
-authoritative ticket text may explicitly state that one implementation satisfies multiple
-issues; otherwise tickets are never combined for convenience.
+The entire pool uses one branch and one final PR. Each ticket leaves checked commits on
+that branch; no per-ticket target refresh, push, PR or merge is needed. Resume keeps the
+existing branch and accumulated progress. A blocked pool is not published in part unless
+the user explicitly requests it.
 
 It defaults to `/implement`, but records and honours an explicitly selected user or
 project runner. It therefore still fits the
@@ -45,10 +48,11 @@ on a queue with a different configured workflow.
 Loop state lives outside the working repository, under the host's
 `loop-tickets/<repo-key>/<pool>/` directory: `$CODEX_HOME` (default `~/.codex`) for
 Codex, or `~/.claude` for Claude Code. The compact note instead lives at the tracked
-repository path `.loop-tickets/project-notes.md`. Each ticket updates it once as an
-effective-on-merge snapshot and includes it in the same implementation PR before the
-first push, avoiding a note-only commit or duplicate CI. It summarizes merged progress,
-the projected frontier, validation cost, repeated waste and future ticket-design lessons.
+repository path `.loop-tickets/project-notes.md`. Each ticket includes a cumulative
+committed-but-unmerged snapshot with its final implementation commit; the last ticket
+prepares the pool's effective-on-merge snapshot. The note summarizes progress, the
+frontier, validation cost, repeated waste and future ticket-design lessons without
+note-only commits or pushes. External state records actual check and delivery results.
 Existing matching state is reused on resume.
 
 Code review defaults on. To omit the separate review pass:
@@ -59,11 +63,14 @@ $loop-tickets review=off
 
 During development, the loop runs only the smallest local test selectors related to the
 current ticket; it does not manually run full regression suites or tests from earlier
-tickets without a current-ticket reason. Before every ticket, it refreshes the target
-branch (`develop` by default) and starts new work from that latest version. It observes
-the repository's required local or remote check results and follows its merge workflow.
-Failed checks stay on the same ticket for repair; the loop does not define CI/CD logic,
-bypass protections or duplicate checks.
+tickets without a reason in the changed behavior. At pool start, it fetches the target
+branch (`develop` by default) once. Once all tickets are committed, it opens one pool PR
+and follows the repository's merge workflow to refresh and integrate the target on the
+same branch. It observes repository-owned checks before
+each commit and before the final PR merge. Failed commit checks stay on the current
+ticket; failed final checks retain the pool's integration state. Tickets are only marked
+done after the pool PR has merged. The loop does not define CI/CD logic, bypass
+protections or duplicate checks.
 
 ### [`implement`](skills/implement)
 
